@@ -43,7 +43,7 @@ router.post('/signup', async (req, res) => {
     });
 
     console.log(`Verification code for ${email}: ${verificationCode}`);
-    res.status(200).json({ message: 'Verification code sent', verificationCode }); // send for demo
+    res.status(200).json({ message: 'Verification code sent'}); // send for demo
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });
@@ -92,5 +92,46 @@ router.post('/login', async (req, res) => {
   }
 });
 
+
+// RESEND VERIFICATION CODE
+router.post('/resend-code', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) return res.status(400).json({ error: 'Email is required' });
+
+    // Check if user exists
+    const [rows] = await db.promise().query('SELECT * FROM users WHERE email = ?', [email]);
+    if (rows.length === 0) return res.status(400).json({ error: 'User not found' });
+
+    const user = rows[0];
+    if (user.verified) return res.status(400).json({ error: 'User already verified' });
+
+    // Generate new 6-digit code
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Update user with new code
+    await db.promise().query(
+      'UPDATE users SET verification_code = ? WHERE email = ?',
+      [verificationCode, email]
+    );
+
+    // Send email
+    await transporter.sendMail({
+      from: `"CitySphere" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: 'CitySphere Verification Code',
+      html: `<p>Hello <b>${user.name}</b>,</p><p>Your new verification code is: <b>${verificationCode}</b></p>`
+    });
+
+    console.log(`Resent verification code for ${email}: ${verificationCode}`);
+
+    // ✅ Remove verificationCode from response in production
+    res.status(200).json({ message: 'Verification code resent', verificationCode });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 export default router;
