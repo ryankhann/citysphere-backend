@@ -10,7 +10,7 @@ const app = express();
 
 
 app.use(cors({
-  origin: 'https://citysphere.pages.dev',
+  origin: 'https://urbancitysphere.netlify.app',
   credentials: true
 }));
 
