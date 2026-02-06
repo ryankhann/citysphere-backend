@@ -1,3 +1,4 @@
+// server.js
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -8,33 +9,35 @@ import { db } from './db.js';
 dotenv.config();
 const app = express();
 
-// ✅ Enable CORS for your frontend
 app.use(cors({
   origin: 'https://cityspherre.netlify.app',
   credentials: true
 }));
 
-// ✅ Parse JSON requests
 app.use(express.json());
 
-// ✅ Connect to MySQL
-db.connect(err => {
-  if (err) {
+// ✅ Test MySQL connection (mysql2 pool style)
+(async () => {
+  try {
+    await db.query('SELECT 1');
+    console.log('✅ MySQL connected successfully');
+  } catch (err) {
     console.error('❌ MySQL connection error:', err);
     process.exit(1);
-  } else {
-    console.log('✅ MySQL connected successfully');
   }
-});
+})();
 
+// Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/auth', authMeRoutes);
 
-
+// Health check
 app.get('/', (req, res) => {
   res.send('CitySphere Backend is running 🚀');
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
 
