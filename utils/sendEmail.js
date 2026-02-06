@@ -10,21 +10,22 @@ export const sendEmail = async (to, code, name) => {
       subject: "CitySphere Verification Code",
       html: `
         <h2>Verify your CitySphere account</h2>
-        <p>Hello ${name},</p>
+        <p>Hello <b>${name}</b>,</p>
         <p>Your verification code is:</p>
         <h1>${code}</h1>
-        <p>This code expires in 10 minutes.</p>
+        <p>This code will expire in 10 minutes.</p>
       `
     });
-    
+
     if (error) {
-      console.error('Email error:', error);
-      return false;
+      console.error('Resend email error:', error);
+      return { success: false, code }; // Return code for demo
     }
-    
-    return true;
-  } catch (error) {
-    console.error('Email sending failed:', error);
-    return false;
+
+    console.log(`Email sent successfully to ${to}: ${code}`);
+    return { success: true };
+  } catch (err) {
+    console.error('Email sending failed:', err);
+    return { success: false, code }; // Return code for demo
   }
 };
