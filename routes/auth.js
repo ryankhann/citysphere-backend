@@ -62,42 +62,32 @@ router.post('/signup', async (req, res) => {
   }
 });
 
-// ---------------------------
 // LOGIN
-// ---------------------------
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password required' });
-    }
+    if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
 
     const [rows] = await db.promise().query('SELECT * FROM users WHERE email = ?', [email]);
-    if (rows.length === 0) {
-      return res.status(400).json({ error: 'Invalid credentials' });
-    }
+    if (rows.length === 0) return res.status(400).json({ error: 'User not found' });
 
     const user = rows[0];
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ error: 'Invalid credentials' });
-    }
 
-    if (!user.verified) {
-      return res.status(400).json({ error: 'Email not verified' });
-    }
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) return res.status(400).json({ error: 'Incorrect password' });
+
+    if (!user.verified) return res.status(400).json({ error: 'Account not verified' });
 
     const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
-    res.json({
-      user: { id: user.id, name: user.name, email: user.email },
-      token
-    });
+    res.json({ user: { id: user.id, name: user.name, email: user.email }, token });
+
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
+
 
 // ---------------------------
 // RESEND VERIFICATION CODE
