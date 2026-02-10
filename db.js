@@ -1,21 +1,20 @@
 // db.js
-import mysql from "mysql2/promise";
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
+import mysql from 'mysql2';
+import fs from 'fs';
+import dotenv from 'dotenv';
 
-// Fix __dirname for ESM
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+dotenv.config();
 
-// Create a pool and export it as a named export
 export const db = mysql.createPool({
   host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
-  port: process.env.DB_PORT,
   ssl: {
-    ca: fs.readFileSync(path.join(__dirname, "certs/aiven-ca.pem")), // your Aiven CA
+    ca: fs.readFileSync('./certs/ca.pem')
   },
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
 });
