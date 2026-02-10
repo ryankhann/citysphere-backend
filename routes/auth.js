@@ -1,24 +1,24 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { Resend } from 'resend';
 import { db } from '../db.js';
+import { Resend } from 'resend';
 
 const router = express.Router();
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-// =======================
+// =====================
 // SIGNUP → SEND CODE
-// =======================
+// =====================
 router.post('/signup', async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
     if (!name || !email || !password) {
-      return res.status(400).json({ error: 'All fields are required' });
+      return res.status(400).json({ error: 'All fields required' });
     }
 
-    const [existing] = await db.promise().query(
+    const [existing] = await db.query(
       'SELECT id FROM users WHERE email = ?',
       [email]
     );
@@ -28,27 +28,30 @@ router.post('/signup', async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
 
-    await db.promise().query(
-      `INSERT INTO users (name, email, password, verification_code, verified)
-       VALUES (?, ?, ?, ?, 0)`,
-      [name, email, hashedPassword, verificationCode]
+    await db.query(
+      `INSERT INTO users (name, email, password, verification_code, is_verified)
+       VALUES (?, ?, ?, ?, false)`,
+      [name, email, hashedPassword, code]
     );
 
-    await resend.emails.send({
-      from: 'CitySphere <onboarding@resend.dev>', // ✅ REQUIRED
-      to: email,
-      subject: 'Verify your CitySphere account',
-      html: `
-        <h2>Welcome to CitySphere</h2>
-        <p>Your verification code is:</p>
-        <h1>${verificationCode}</h1>
-        <p>This code expires in 10 minutes.</p>
-      `
-    });
+    // Send email
+    try {
+      await resend.emails.send({
+        from: 'CitySphere <onboarding@resend.dev>',
+        to: email,
+        subject: 'Your CitySphere Verification Code',
+        html: `<h2>Your verification code</h2><p><b>${code}</b></p>`
+      });
+    } catch (emailErr) {
+      console.error('Email failed:', emailErr);
+    }
 
-    res.json({ message: 'Verification code sent' });
+    res.json({
+      message: 'Verification code sent',
+      verificationCode: code // dev/demo fallback
+    });
 
   } catch (err) {
     console.error('Signup error:', err);
@@ -56,26 +59,30 @@ router.post('/signup', async (req, res) => {
   }
 });
 
-// =======================
+// =====================
 // VERIFY CODE
-// =======================
+// =====================
 router.post('/verify', async (req, res) => {
   try {
     const { email, code } = req.body;
 
-    const [rows] = await db.promise().query(
-      'SELECT * FROM users WHERE email = ? AND verification_code = ?',
-      [email, code]
+    const [rows] = await db.query(
+      'SELECT * FROM users WHERE email = ?',
+      [email]
     );
 
     if (rows.length === 0) {
-      return res.status(400).json({ error: 'Invalid verification code' });
+      return res.status(400).json({ error: 'User not found' });
     }
 
     const user = rows[0];
 
-    await db.promise().query(
-      'UPDATE users SET verified = 1, verification_code = NULL WHERE id = ?',
+    if (user.verification_code !== code) {
+      return res.status(400).json({ error: 'Invalid verification code' });
+    }
+
+    await db.query(
+      'UPDATE users SET is_verified = true, verification_code = NULL WHERE id = ?',
       [user.id]
     );
 
@@ -86,12 +93,8 @@ router.post('/verify', async (req, res) => {
     );
 
     res.json({
-      token,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email
-      }
+      user: { id: user.id, name: user.name, email: user.email },
+      token
     });
 
   } catch (err) {
@@ -100,14 +103,14 @@ router.post('/verify', async (req, res) => {
   }
 });
 
-// =======================
+// =====================
 // LOGIN
-// =======================
+// =====================
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const [rows] = await db.promise().query(
+    const [rows] = await db.query(
       'SELECT * FROM users WHERE email = ?',
       [email]
     );
@@ -118,13 +121,12 @@ router.post('/login', async (req, res) => {
 
     const user = rows[0];
 
-    if (!user.verified) {
-      return res.status(403).json({ error: 'Please verify your email first' });
+    if (!user.is_verified) {
+      return res.status(403).json({ error: 'Email not verified' });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
-
-    if (!isMatch) {
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) {
       return res.status(400).json({ error: 'Invalid credentials' });
     }
 
@@ -135,12 +137,8 @@ router.post('/login', async (req, res) => {
     );
 
     res.json({
-      token,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email
-      }
+      user: { id: user.id, name: user.name, email: user.email },
+      token
     });
 
   } catch (err) {
