@@ -1,18 +1,16 @@
-// db.js
-import mysql from 'mysql2/promise';
+import pkg from 'pg';
+const { Pool } = pkg;
 
-const db = mysql.createPool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  port: Number(process.env.DB_PORT),
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
   ssl: {
-    ca: process.env.DB_SSL_CA
+    rejectUnauthorized: false,
   },
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
 });
 
-export { db };
+pool.connect()
+  .then(() => console.log("✅ PostgreSQL connected successfully"))
+  .catch(err => console.error("❌ PostgreSQL connection error:", err));
+
+export default pool;
+
