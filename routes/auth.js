@@ -1,7 +1,7 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import db from '../db.js';
+import { db } from '../db.js';
 import { Resend } from 'resend';
 
 const router = express.Router();
@@ -18,12 +18,12 @@ router.post('/signup', async (req, res) => {
       return res.status(400).json({ error: 'All fields required' });
     }
 
-    const existing = await db.query(
+    const existingUser = await db.query(
       'SELECT id FROM users WHERE email = $1',
       [email]
     );
 
-    if (existing.rows.length > 0) {
+    if (existingUser.rows.length > 0) {
       return res.status(400).json({ error: 'Email already registered' });
     }
 
@@ -36,7 +36,6 @@ router.post('/signup', async (req, res) => {
       [name, email, hashedPassword, code]
     );
 
-    // Try sending email (optional in dev mode)
     try {
       await resend.emails.send({
         from: 'CitySphere <onboarding@resend.dev>',
@@ -50,7 +49,7 @@ router.post('/signup', async (req, res) => {
 
     res.json({
       message: 'Verification code sent',
-      verificationCode: code // DEV fallback
+      verificationCode: code
     });
 
   } catch (err) {
@@ -58,7 +57,6 @@ router.post('/signup', async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 });
-
 
 // =====================
 // VERIFY CODE
@@ -103,7 +101,6 @@ router.post('/verify', async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 });
-
 
 // =====================
 // LOGIN

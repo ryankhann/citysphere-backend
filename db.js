@@ -1,16 +1,14 @@
+// db.js
 import pkg from 'pg';
 const { Pool } = pkg;
 
-const pool = new Pool({
+export const db = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
-    rejectUnauthorized: false,
-  },
+    rejectUnauthorized: false
+  }
 });
 
-pool.connect()
-  .then(() => console.log("✅ PostgreSQL connected successfully"))
-  .catch(err => console.error("❌ PostgreSQL connection error:", err));
-
-export default pool;
-
+db.connect()
+  .then(() => console.log('✅ PostgreSQL connected'))
+  .catch(err => console.error('❌ PostgreSQL connection error:', err));
